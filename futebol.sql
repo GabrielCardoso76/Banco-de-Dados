@@ -8,7 +8,7 @@ USE futebol_aula;
 
 -- Inicio da Execucao com usuario futebol
 -- Remover tabelas do banco (ordem importa)
-/*
+/*popular_torcedores
 DROP TABLE Jogo;
 DROP TABLE EquipeCampeonato;
 DROP TABLE JogadorBrasileiro;
@@ -285,3 +285,185 @@ UPDATE Torcedor2 SET idEquipe = MOD(id, 10) + 1;
 
 -- Somente depois, se quiser, remova a procedure
 DROP PROCEDURE IF EXISTS popular_torcedores;
+
+ALTER TABLE JogadorBrasileiro
+ADD COLUMN DataUltimaAlteracao datetime,
+ADD COLUMN UsuarioUltimaAlteracao varchar(16),
+ADD COLUMN operacao varchar(16);
+
+DELIMITER //
+
+CREATE TRIGGER TR_RegistraAlteracaoJogadorBR
+BEFORE INSERT ON JogadorBrasileiro
+FOR EACH ROW
+BEGIN
+	SET NEW.DataUltimaAlteracao = NOW();
+    	SET NEW.UsuarioUltimaAlteracao = CURRENT_USER();
+    	SET NEW.operacao = 'INSERT';
+END;
+// 
+CREATE TRIGGER Tr_RegistraAlteracaoJogadorBR_UPDATE
+BEFORE UPDATE ON JogadorBrasileiro
+FOR EACH ROW
+BEGIN
+	SET NEW.DataUltimaAlteracao = NOW();
+	SET NEW.UsuarioUltimaAlteracao = current_user();
+	SET NEW.operacao = 'UPDATE';
+END;
+//
+DELIMITER ;
+
+UPDATE JogadorBrasileiro
+SET salario = salario * 1.1
+where nome like 'Sao Marcos';
+
+insert INTO JogadorBrasileiro (cpf, nome, posicao, idEquipe, salario)
+values ('064.174.178.09', 'Juca Bala', 'Goleiro', 7, 10900);
+
+CREATE TABLE auditoriaJogadorBr (
+	idJogadorBr INT,
+    salarioAntigo DECIMAL(10,2),
+    salNovo decimal(10,2),
+    usuario varchar(16),
+    dataAlteracao datetime
+);
+
+DELIMITER //
+CREATE TRIGGER tr_auditoriaSalarioJogadorBr
+BEFORE UPDATE ON JogadorBrasileiro
+FOR EACH ROW
+BEGIN
+ IF OLD.salario <> NEW.salario THEN
+	INSERT INTO auditoriaJogadorBr (idJogadorBr, salarioAntigo, salNovo, usuario, dataAlteracao)
+    values (OLD.id, OLD.salario, NEW.salario, CURRENT_USER(), NOW());
+END IF;
+END;
+//
+DELIMITER ;
+
+Select * from JogadorBrasileiro;
+
+UPDATE JogadorBrasileiro set salario = salario*1.1
+	WHERE nome LIKE 'Sao Marcos';
+
+DROP TRIGGER tr_auditoriaSalarioJogadorBr;
+-- Exemplo com varialvel de controle 
+SET @habilitar_auditoria = 1;
+DELIMITER //
+CREATE TRIGGER tr_auditoriaSalarioJogadorBr
+BEFORE UPDATE ON JogadorBrasileiro
+FOR EACH ROW
+BEGIN
+	IF @habilitar_auditoria = 1 AND OLD.salario <> NEW.salario THEN
+    insert INTO auditoriaJogadorBr (idJogadorBr, salarioAntigo, salNovo, usuario, dataAlteracao)
+    values (OLD.id, OLD.salario, NEW.salario, CURRENT_USER(), NOW());
+    END IF;
+END;
+// 
+DELIMITER ;
+
+# ***********************
+# ******* ATIVIDADE *****
+# ***********************
+
+
+
+
+CREATE TABLE registroCartao (
+id INT PRIMARY KEY AUTO_INCREMENT,
+id_jogador INT,
+origem ENUM('brasileiro', 'estrangeiro') NOT NULL,
+tipo ENUM('amarelo', 'vermelho') NOT NULL,
+data_aplicacao DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+Alter table jogadorBrasileiro
+add column cartoes int default 0;
+
+Alter table jogadorEstrangeiro
+add column cartoes int default 0;
+
+# criando trigger
+
+DELIMITER $$
+
+CREATE TRIGGER atualiza_cartoes
+AFTER INSERT ON registroCartao
+FOR EACH ROW
+BEGIN
+ IF NEW.origem = 'brasileiro' THEN
+	UPDATE JogadorBrasileiro
+    SET cartoes = cartoes + 1
+    WHERE id = NEW.id_jogador;
+ ELSEIF NEW.origem = 'estrangeiro' THEN
+	UPDATE JogadorEstrangeiro
+    SET cartoes = cartoes + 1
+    WHERE id = NEW.id_jogador;
+ END IF;
+END $$
+DELIMITER ;
+
+select * from registroCartao;
+select * from JogadorBrasileiro;
+
+INSERT INTO registroCartao(id_jogador, origem, tipo)
+VALUES(1, 'brasileiro', 'amarelo');
+
+INSERT INTO registroCartao(id_jogador, origem, tipo)
+VALUES(1, 'brasileiro', 'amarelo');
+
+INSERT INTO registroCartao(id_jogador, origem, tipo)
+VALUES(1, 'brasileiro', 'amarelo');
+
+show warnings;
+
+select id, nome, cartao from jogadorBrasileiro where id = 1;
+
+CREATE TABLE log_mensagens (
+id INT AUTO_INCREMENT PRIMARY KEY,
+id_jogador INT,
+mensagem TEXT,
+data_evento DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+
+# --------------------------- #
+# -------- ATIVIDADE -------- #
+# --------------------------- #
+
+CREATE TABLE log_mensagens (
+id INT AUTO_INCREMENT PRIMARY KEY,
+id_jogador INT,
+mensagem TEXT,
+data_evento DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+DROP TRIGGER verifica_cartoes;
+
+DELIMITER $$
+
+CREATE TRIGGER verifica_cartoes
+BEFORE INSERT ON registroCartao
+FOR EACH ROW
+BEGIN
+  DECLARE qtd_amarelos INT;
+
+  IF NEW.tipo = 'amarelo' THEN
+    SELECT COUNT(*) INTO qtd_amarelos
+    FROM registroCartao
+    WHERE id_jogador = NEW.id_jogador AND tipo = 'amarelo';
+
+    IF qtd_amarelos = 2 THEN
+      SET NEW.tipo = 'vermelho';
+
+      INSERT INTO log_mensagens(id_jogador, mensagem)
+      VALUES (NEW.id_jogador, 'Jogador recebeu terceiro cartão amarelo, convertido para vermelho');
+
+      INSERT INTO log_mensagens(id_jogador, mensagem)
+      VALUES (NEW.id_jogador, 'Jogador expulso por acúmulo de cartões amarelos');
+    END IF;
+  END IF;
+END$$
+
+DELIMITER ;
+ 
