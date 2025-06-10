@@ -259,8 +259,6 @@ select * from vw_jogadores_sem_equipe;
 create INDEX idx_JogadorBrasileiro_nome ON
 jogadorBrasileiro(nome);
 
-#show idx_JogadorBrasileiro_nome;
-
 #2)Crie um índice na coluna dataJogo da tabela Jogo para otimizar consultas baseadas na data dos jogos.
 
 create index idx_jogo_dataJogo ON 
@@ -286,7 +284,6 @@ begin
 end$$
 DELIMITER ;
 
-
 #2)Crie um TRIGGER after_insert_nova_equipe_log que, após a inserção de uma nova equipe na tabela Equipe, registre o nome da nova equipe e a data de inserção em uma tabela de log simples (crie a tabela log_equipes_novas primeiro). Considere a tabela log_equipes_novas.
 
 CREATE TABLE log_equipes_novas (
@@ -305,7 +302,7 @@ end$$
 
 DELIMITER ;
 
-
+show triggers;
 
 # 3) Crie um TRIGGER before_insert_jogo_gols_nao_negativos que, antes de inserir um novo jogo, garanta que os golsEquipeCasa e golsEquipeFora
 -- não sejam negativos. Se algum for, defina-o como 0.
@@ -323,6 +320,8 @@ begin
 end$$
 
 DELIMITER ;
+
+show triggers;
 
 #**************** EVENTS *******************
 #Events são tarefas que o banco de dados executa automaticamente em horários definidos, como um despertador.
@@ -360,7 +359,6 @@ DELIMITER ;
 -- for menor que R$ 10.000,00, ajuste-o para R$ 10.000,00. Isso simula um "salário mínimo" garantido pelo clube.
 -- Certifique-se de que o agendador de eventos esteja ligado
 
-
 DELIMITER $$
 CREATE EVENT atualizar_salarios_minimos_semanal
 ON SCHEDULE every 1 week
@@ -371,6 +369,9 @@ BEGIN
     where salario < 10000.00;
 END$$
 DELIMITER ;
+
+show events;
+
 # ****************************************
 #**********STORED PROCEDURES *************
 # ****************************************
@@ -401,6 +402,9 @@ begin
  values (p_nome);
  end$$
 DELIMITER ;
+
+show procedure status;
+
 #***************** FUNCTION ******************
 
 #Funções no MySQL sempre retornam um único valor, e podemos adicionar lógica condicional com IF ELSE para que elas tomem decisões.
@@ -463,6 +467,8 @@ DELIMITER $$
 	END$$
 DELIMITER ;
 
+show function status;
+
 # ************** QUESTÃO EXTRA [1,0 pto] ****************
 /* Depois que você terminou sua avaliação, faça para esse mesmo script fornecido:
 Crie um novo usuário em seu ambiente MySQL, dando a ele um nome de usuário e uma senha de sua escolha. 
@@ -473,3 +479,21 @@ c) Retire todas as permissões concedidas a este usuário.
 d) Verifique novamente as permissões do usuario_teste para confirmar que elas foram revogadas.
 */
 # OBS: Todas as questoes tem o mesmo peso, exceto a questão EXTRA. A prova vale 10,0 pontos + 1,0 ponto EXTRA!
+
+create user 'Cardoso'@'localhost' 
+IDENTIFIED BY 'senai123';
+
+#a)
+grant all privileges on *.* to
+'Cardoso'@'localhost';
+
+#b)
+show grants for 'Cardoso'@'localhost';
+
+#c)
+REVOKE All privileges on *.* 
+from 'Cardoso'@'localhost'
+privileges;
+
+#d)
+show grants for 'Cardoso'@'localhost';
